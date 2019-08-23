@@ -1,0 +1,140 @@
+@using System.Configuration
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        function extractToken(hash) {
+            let match = hash.match(/access_token=([\w-.]+)/);
+            return !!match && match[1];
+        };
+
+        function extractCode(url) {
+            let params = url.split('?')[1].split('&');
+            let code = params.find(param => param.includes('code=')).split('=')[1];
+
+            return code;
+        }
+
+        function errorInHash(hash) {
+            let match = hash.match(/error=/);
+            return !!match;
+        };
+
+        function redirectToEditPage() {
+            window.location.href = "@Url.Action("SyncPhoto", "Experts", new { redirect = true })";
+        }
+
+        let access_token = extractToken(document.location.hash);
+        let access_code = extractCode(window.location.search);
+        console.log(access_code);
+
+        if (access_code) {
+            $.ajax({
+                cache: false,
+                type: "GET",
+                url: '@Url.Action("GetAccessToken", "Experts")',
+                data: { access_code: access_code },
+                contentType: 'application/json',
+                dataType: "json",
+                success: function(result) {
+                    // ok
+                },
+                error: function(xhr) {
+                    // error
+                }
+            });
+        } else {
+            redirectToEditPage();
+        }
+
+        if (access_token) {
+            let getPhotoXhr = new XMLHttpRequest();
+
+            // so you can access the response like a normal URL; doesn't work without this and doesn't work with jQuery
+            getPhotoXhr.open('GET', "@ConfigurationManager.AppSettings["microsoftGraphEndpoint"]", true);
+            getPhotoXhr.responseType = 'blob';
+            getPhotoXhr.onreadystatechange = function () {
+                if (getPhotoXhr.readyState == XMLHttpRequest.DONE && getPhotoXhr.status == 200) {
+                    // send photo to the server
+                    let uploadPhotoXhr = new XMLHttpRequest();
+
+                    uploadPhotoXhr.open("POST", "/Experts/UpdatePhoto", true);
+                    uploadPhotoXhr.send(getPhotoXhr.response);
+
+                    uploadPhotoXhr.onreadystatechange = function () {
+                        redirectToEditPage();
+                    }
+                }
+            };
+            getPhotoXhr.onloadend = function () {
+                // no photo or error
+                if (getPhotoXhr.readyState == XMLHttpRequest.DONE && getPhotoXhr.status == 404) {
+                    redirectToEditPage();
+                }
+            }
+            getPhotoXhr.setRequestHeader('Authorization', "Bearer " + access_token);
+            getPhotoXhr.send();
+        } else {
+            // error: there is no access token in URL
+            if (errorInHash(document.location.hash)) {
+                // the user did not accept the application permissions
+                redirectToEditPage();
+            }
+        }
+    });
+</script>
+
+@*<script type="text/javascript">
+    // script for oauth2 implicit flow. does not work on IE when you're already logged in.
+    $(document).ready(function () {
+        function extractToken(hash) {
+            let match = hash.match(/access_token=([\w-.]+)/);
+            return !!match && match[1];
+        };
+
+        function errorInHash(hash) {
+            let match = hash.match(/error=/);
+            return !!match;
+        };
+
+        function redirectToEditPage() {
+            window.location.href = "@Url.Action("SyncPhoto", "Experts", new { redirect = true })";
+        }
+
+        let access_token = extractToken(document.location.hash);
+
+        if (access_token) {
+            let getPhotoXhr = new XMLHttpRequest();
+
+            // so you can access the response like a normal URL; doesn't work without this and doesn't work with jQuery
+            getPhotoXhr.open('GET', "@ConfigurationManager.AppSettings["microsoftGraphEndpoint"]", true);
+            getPhotoXhr.responseType = 'blob';
+            getPhotoXhr.onreadystatechange = function () {
+                if (getPhotoXhr.readyState == XMLHttpRequest.DONE && getPhotoXhr.status == 200) {
+                    // send photo to the server
+                    let uploadPhotoXhr = new XMLHttpRequest();
+
+                    uploadPhotoXhr.open("POST", "/Experts/UpdatePhoto", true);
+                    uploadPhotoXhr.send(getPhotoXhr.response);
+
+                    uploadPhotoXhr.onreadystatechange = function () {
+                        redirectToEditPage();
+                    }
+                }
+            };
+            getPhotoXhr.onloadend = function () {
+                // no photo or error
+                if (getPhotoXhr.readyState == XMLHttpRequest.DONE && getPhotoXhr.status == 404) {
+                    redirectToEditPage();
+                }
+            }
+            getPhotoXhr.setRequestHeader('Authorization', "Bearer " + access_token);
+            getPhotoXhr.send();
+        } else {
+            // error: there is no access token in URL
+            if (errorInHash(document.location.hash)) {
+                // the user did not accept the application permissions
+                redirectToEditPage();
+            }
+        }
+    });
+</script>*@
